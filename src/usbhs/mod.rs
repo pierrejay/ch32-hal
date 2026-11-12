@@ -25,9 +25,12 @@
 //! [`set_sof_callback`] runs a function from the interrupt on every SOF (125 us at high
 //! speed).
 //!
-//! An endpoint number can be used for both an IN and an OUT endpoint of the same type.
-//! Isochronous and bulk / interrupt endpoints must use different numbers: a PING to a bulk
-//! OUT whose number is isochronous on the IN side hangs the SIE.
+//! Each bulk / interrupt endpoint needs a number of its own, across both directions: with the
+//! hardware toggle, a write to the IN side of a number can leave the OUT side's toggle unchanged
+//! after a packet, and OUT packets are lost. So there are at most 15 such endpoints, and an
+//! explicit address whose number is already taken fails. Isochronous IN and OUT endpoints may
+//! share a number. Isochronous and bulk / interrupt endpoints must use different numbers: a PING
+//! to a bulk OUT whose number is isochronous on the IN side hangs the SIE.
 //!
 //! Not supported: remote wakeup, high-bandwidth isochronous (more than one transaction per
 //! microframe), hardware double buffering, full-speed operation (the block is configured
