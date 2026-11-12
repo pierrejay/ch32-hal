@@ -964,8 +964,8 @@ impl<'d, T: Instance, const NR_EP: usize, const SIZE: usize> Driver<'d, T, NR_EP
         let iso = ep_type == EndpointType::Isochronous;
         // the other direction's type: a PING to a bulk OUT whose number is iso on the IN side
         // hangs the SIE (no endpoint answers after it). and a bulk / interrupt endpoint gets a
-        // number of its own: with the auto toggle, a write to the IN side's TX_LEN / TX_CTRL as the
-        // SIE flips the OUT side's toggle (same register word) undoes the flip, and packets are lost
+        // number of its own: with the auto toggle, a CPU write to the IN side's TX_LEN / TX_CTRL
+        // can leave the OUT side's toggle unchanged after a packet, and OUT packets are lost
         let taken = if iso { self.other_nums } else { self.iso_nums | self.other_nums };
         let allocated = match dir {
             Direction::Out => &mut self.allocated_out,
