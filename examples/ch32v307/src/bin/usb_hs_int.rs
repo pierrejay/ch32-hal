@@ -1,7 +1,7 @@
 //! USBHS interrupt endpoint echo (vendor class).
 //!
 //! One interface with an interrupt OUT endpoint (0x01) and an interrupt IN endpoint
-//! (0x81), 64-byte packets, interval 1. The task reads one OUT packet and writes it back
+//! (0x82), 64-byte packets, interval 1. The task reads one OUT packet and writes it back
 //! to the IN endpoint. A host tool can send 64-byte, short and zero-length packets and
 //! compare the echo, which exercises the interrupt transfer path (arm/ready, NAK flow
 //! control, toggle handling) without a class driver.
@@ -77,7 +77,7 @@ async fn main(_spawner: Spawner) {
             1,
         );
         let ep_in = alt.endpoint_interrupt_in(
-            Some(EndpointAddress::from_parts(1, Direction::In)),
+            Some(EndpointAddress::from_parts(2, Direction::In)),
             EP_SIZE,
             1,
         );
