@@ -245,6 +245,7 @@ impl<'d, T: Instance, const N: usize> RDesRing<'d, T, N> {
         let rdes0 = loop {
             let rdes0 = self.desc[self.index].rdes0();
             if rdes0 & RDES0_OWN != 0 {
+                self.unstall();
                 return None;
             }
             let single = rdes0 & (RDES0_FS | RDES0_LS) == (RDES0_FS | RDES0_LS);
@@ -275,6 +276,20 @@ impl<'d, T: Instance, const N: usize> RDesRing<'d, T, N> {
         fence(Ordering::SeqCst);
         self.resume_rx();
         self.index = (self.index + 1) % N;
+    }
+
+    /// Seen on CH32V307 revision 0x10, which WCH's driver also handles: after a
+    /// receive buffer unavailable event the DMA can keep writing every frame into
+    /// the descriptor after the one to read, which stays its own, and reception
+    /// stops for good. A descriptor the CPU owns right after one the DMA owns comes
+    /// only from that: give it back (its frame is lost) and resume.
+    fn unstall(&mut self) {
+        let next = (self.index + 1) % N;
+        if next != self.index && self.desc[next].rdes0() & RDES0_OWN == 0 {
+            self.desc[next].set_rdes0(RDES0_OWN);
+            fence(Ordering::SeqCst);
+            self.demand_poll();
+        }
     }
 
     fn resume_rx(&self) {
