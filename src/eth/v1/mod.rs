@@ -12,6 +12,8 @@
 //! Use [`Ethernet::new_internal`] for the built-in PHY, or
 //! [`Ethernet::new_rmii`] for an external PHY. RMII pins are configured and
 //! retained by the driver.
+//! With an external PHY, the MAC takes its speed and duplex from the PHY at each
+//! link-up ([`Phy::speed_100`], [`Phy::full_duplex`]).
 //!
 //! With the built-in PHY the driver also corrects a reversed receive pair: once
 //! the MAC counters show CRC errors and not a single good frame, it swaps the
@@ -115,6 +117,8 @@ pub struct Ethernet<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> {
     link_up: bool,
     /// MAC duplex mode, from the PHY at link-up.
     full_duplex: bool,
+    /// MAC speed with an external PHY, from the PHY at link-up: true for 100 Mbit/s.
+    speed_100: bool,
     /// Receive polarity swaps tried on this link.
     polarity_swaps: u8,
     /// The last link drop came from a polarity swap restarting auto-negotiation.
@@ -235,7 +239,7 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
         }
 
         // 3.-11. Soft reset and MAC/DMA configuration
-        let clock_range = configure_mac_dma::<T>(phy_interface, mac_addr, true)?;
+        let clock_range = configure_mac_dma::<T>(phy_interface, mac_addr, true, true)?;
         let mut smi = Smi::new(T::regs(), clock_range);
 
         // Complete fallible PHY setup before DMA can access the packet queue.
@@ -266,6 +270,7 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
             rx_recovery_pending: false,
             link_up: false,
             full_duplex: true,
+            speed_100: true,
             polarity_swaps: 0,
             polarity_swapping: false,
             _pins: pins,
@@ -273,13 +278,20 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
         })
     }
 
-    /// Apply the duplex mode of the new link.
+    /// Apply the duplex mode and, with an external PHY, the speed of the new link.
     fn on_link_up(&mut self) {
         let e = T::regs();
         let full = self.phy.full_duplex(&mut self.smi).unwrap_or(true);
         if full != self.full_duplex {
             e.maccr().modify(|w| w.set_dm(full));
             self.full_duplex = full;
+        }
+        if self.phy_interface == PhyInterface::Rmii {
+            let fast = self.phy.speed_100(&mut self.smi).unwrap_or(true);
+            if fast != self.speed_100 {
+                e.maccr().modify(|w| w.set_fes(u8::from(fast)));
+                self.speed_100 = fast;
+            }
         }
         // The MMC counters describe one link; start them over.
         Mmc::new(e).reset();
@@ -353,7 +365,7 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
         });
         e.dmaomr().modify(|w| w.set_sr(false));
 
-        if configure_mac_dma::<T>(self.phy_interface, self.mac_addr, self.full_duplex).is_err() {
+        if configure_mac_dma::<T>(self.phy_interface, self.mac_addr, self.full_duplex, self.speed_100).is_err() {
             // The soft reset did not complete. Retry on the next poll.
             self.rx_recovery_pending = true;
             return;
@@ -381,6 +393,7 @@ fn configure_mac_dma<T: Instance>(
     phy_interface: PhyInterface,
     mac_addr: [u8; 6],
     full_duplex: bool,
+    speed_100: bool,
 ) -> Result<u8, InitError> {
     let e = T::regs();
 
@@ -420,7 +433,7 @@ fn configure_mac_dma<T: Instance>(
         if phy_interface == PhyInterface::Internal10M {
             w.set_ire(true); // Internal 50-ohm pull-up (10M PHY only)
         } else {
-            w.set_fes(1); // 100 Mbps for external PHY
+            w.set_fes(u8::from(speed_100)); // 100 or 10 Mbit/s, from the PHY at link-up
             w.set_apcs(true); // Auto pad/CRC strip
             w.set_rd(true); // Retry disable
         }

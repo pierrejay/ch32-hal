@@ -21,6 +21,12 @@ pub trait Phy {
     fn full_duplex(&mut self, _smi: &mut Smi) -> Result<bool, SmiError> {
         Ok(true)
     }
+    /// Speed of the established link (called on each link-up). Returns true for
+    /// 100 Mbit/s, false for 10 Mbit/s. Only used with an external PHY; the
+    /// default keeps the MAC at 100 Mbit/s.
+    fn speed_100(&mut self, _smi: &mut Smi) -> Result<bool, SmiError> {
+        Ok(true)
+    }
     /// Swap the polarity of the receive pair and restart auto-negotiation.
     ///
     /// Called when the MAC has seen frames that fail their FCS and not a
