@@ -218,6 +218,12 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
 
             // Enable the built-in 10M PHY via EXTEND register
             pac::EXTEND.ctr().modify(|w| w.set_eth_10m_en(true));
+            // Reset the MAC through the RCC, as WCH's ETH_DeInit() does right after
+            // this bit. With the PHY on, it also resets the PHY, which then advertises
+            // 10 Mbit/s half and full duplex (0x0c61); from power-on it advertises half
+            // duplex only (0x0c21), and the link comes up in half duplex.
+            pac::RCC.ahbrstr().modify(|w| w.set_ethmacrst(true));
+            pac::RCC.ahbrstr().modify(|w| w.set_ethmacrst(false));
         } else {
             // Select RMII via AFIO for the external PHY.
             #[cfg(afio_v3)]
