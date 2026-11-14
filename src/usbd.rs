@@ -575,8 +575,17 @@ impl<'d, T: Instance> driver::Bus for Bus<'d, T> {
         }
     }
 
-    async fn enable(&mut self) {}
-    async fn disable(&mut self) {}
+    async fn enable(&mut self) {
+        // `new` already set the pull-up for the first enable; set it again after a `disable`.
+        EXTEND.ctr().modify(|w| w.set_usbdpu(true));
+    }
+
+    async fn disable(&mut self) {
+        // Detach from the bus: drop the D+ pull-up, the bit WCH's `USB_Port_Set(DISABLE, DISABLE)` clears.
+        EXTEND.ctr().modify(|w| w.set_usbdpu(false));
+        // embassy-usb enables the bus again only on `PowerDetected`, which `poll` fakes once.
+        self.inited = false;
+    }
 
     async fn remote_wakeup(&mut self) -> Result<(), Unsupported> {
         Err(Unsupported)
