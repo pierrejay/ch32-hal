@@ -114,7 +114,7 @@ pub struct Ethernet<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> {
     smi: Smi,
     mac_addr: [u8; 6],
     phy_interface: PhyInterface,
-    /// A MAC/DMA recovery did not complete and must be retried.
+    /// A MAC/DMA reset is owed: requested, or a recovery that did not complete.
     recovery_pending: bool,
     /// Link state at the last `link_state()` poll.
     link_up: bool,
@@ -464,6 +464,15 @@ impl<'d, T: Instance, const TX: usize, const RX: usize, P: Phy> Ethernet<'d, T, 
         }
         let len = self.rx.available()?.len();
         Some(RxToken { rx: &mut self.rx, len })
+    }
+
+    /// Reset and reconfigure the MAC and DMA at the next receive or transmit
+    /// call, as the driver does itself after an RX FIFO overflow.
+    ///
+    /// For an application watchdog that sees traffic stop for a cause the
+    /// driver cannot detect. Frames still in either ring are lost.
+    pub fn request_reset(&mut self) {
+        self.recovery_pending = true;
     }
 }
 
