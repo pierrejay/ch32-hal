@@ -8,6 +8,7 @@
 //! timeout and the closed-window duration in µs and starts the watchdog, and
 //! [`pet`](WindowWatchdog::pet) refreshes it.
 
+use crate::internal::div::{div, div_ceil};
 use crate::{pac, peripherals, Peri};
 
 /// The counter starts at 0x40 + the number of ticks in the period.
@@ -40,7 +41,10 @@ impl<'d, T: WwdgInstance> WindowWatchdog<'d, T> {
         let pclk1 = crate::rcc::clocks().pclk1.0;
         let (prescaler, ticks) = prescaler_and_ticks(pclk1, timeout_us);
         let counter = RESET_OFFSET + ticks;
-        let closed_ticks = (u64::from(window_us) * u64::from(pclk1) / (u64::from(prescaler) * 4096 * 1_000_000)) as u8;
+        let closed_ticks = div(
+            u64::from(window_us) * u64::from(pclk1),
+            u64::from(prescaler) * 4096 * 1_000_000,
+        ) as u8;
         let window = counter - closed_ticks;
 
         let regs = T::regs();
@@ -109,7 +113,10 @@ impl<'d, T: WwdgInstance> WindowWatchdog<'d, T> {
 fn prescaler_and_ticks(pclk1: u32, timeout_us: u32) -> (u32, u8) {
     for prescaler_power in 0u8..4u8 {
         let prescaler = 1u32 << prescaler_power;
-        let ticks = (u64::from(timeout_us) * u64::from(pclk1)).div_ceil(u64::from(prescaler) * 4096 * 1_000_000);
+        let ticks = div_ceil(
+            u64::from(timeout_us) * u64::from(pclk1),
+            u64::from(prescaler) * 4096 * 1_000_000,
+        );
         if ticks <= 64 {
             return (prescaler, ticks.max(1) as u8);
         }

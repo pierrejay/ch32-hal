@@ -170,11 +170,12 @@ impl BitTiming {
         let mut best = None;
         let mut best_score = u32::MAX;
         for total in (3..=25u32).rev() {
-            let denominator = u64::from(bitrate) * u64::from(total);
-            if u64::from(clock) % denominator != 0 {
+            // At most 1 Mbit/s * 25, so u32 holds it.
+            let denominator = bitrate * total;
+            if clock % denominator != 0 {
                 continue;
             }
-            let prescaler = u64::from(clock) / denominator;
+            let prescaler = clock / denominator;
             if !(1..=1024).contains(&prescaler) {
                 continue;
             }

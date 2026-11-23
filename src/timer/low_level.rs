@@ -167,16 +167,23 @@ impl From<OutputPolarity> for bool {
     }
 }
 
+/// `n / divisor` without a 64-bit division: a divisor past u32::MAX is larger
+/// than any `n` and gives 0.
+fn ratio(n: u32, divisor: u64) -> u32 {
+    u32::try_from(divisor).map_or(0, |divisor| n / divisor)
+}
+
 fn period_registers(clock: u32, frequency: u32, bits: u32, center_aligned: bool, pwm: bool) -> (u16, u32) {
     assert!(frequency > 0);
-    let ticks = u64::from(clock) / (u64::from(frequency) * if center_aligned { 2 } else { 1 });
+    // The clock fits u32, so every quotient below does too; only the divisors
+    // can be wider (twice the frequency, 2^32 ticks).
+    let ticks = ratio(clock, u64::from(frequency) * if center_aligned { 2 } else { 1 });
     assert!(ticks > 0);
     let max_ticks = (1u64 << bits) - u64::from(center_aligned || pwm);
-    let prescaler = (ticks - 1) / max_ticks;
+    let prescaler = ratio(ticks - 1, max_ticks);
     let prescaler = u16::try_from(prescaler).unwrap();
-    let period = ticks / (u64::from(prescaler) + 1);
-    let reload = period - u64::from(!center_aligned);
-    (prescaler, u32::try_from(reload).unwrap())
+    let period = ticks / (u32::from(prescaler) + 1);
+    (prescaler, period - u32::from(!center_aligned))
 }
 
 /// Low-level timer driver.
@@ -302,7 +309,7 @@ impl<'d, T: BasicInstance> Timer<'d, T> {
                 let arr = u64::from(regs.atrlr().read()) + 1;
                 let psc = u64::from(regs.psc().read()) + 1;
 
-                Hertz((u64::from(timer_f.0) / (arr * psc)) as u32)
+                Hertz(ratio(timer_f.0, arr * psc))
             }
             #[cfg(any(ch32l1, ch32v203, ch32v208, ch32h4))]
             TimerBits::Bits32 => {
@@ -310,7 +317,7 @@ impl<'d, T: BasicInstance> Timer<'d, T> {
                 let arr = u64::from(regs.atrlr().read()) + 1;
                 let psc = u64::from(regs.psc().read()) + 1;
 
-                Hertz((u64::from(timer_f.0) / (arr * psc)) as u32)
+                Hertz(ratio(timer_f.0, arr * psc))
             }
         }
     }

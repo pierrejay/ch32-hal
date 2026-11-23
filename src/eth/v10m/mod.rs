@@ -155,7 +155,7 @@ impl<'d, P: PHY> Runner<'d, P> {
                 // to 60 bytes, FCS and preamble (the MAC adds the inter-frame gap
                 // itself). Wake up TX_WAKE_EARLY_US before, which is about the timer
                 // wake-up latency; TX_RTS clears when the transmission is done.
-                let wire_us = (len.max(60) as u64 + 4 + 8) * 8 / 10;
+                let wire_us = u64::from((len.max(60) as u32 + 4 + 8) * 8 / 10);
                 Timer::after_micros(wire_us.saturating_sub(TX_WAKE_EARLY_US)).await;
                 while mac.econ1().read().tx_rts() {
                     Timer::after_micros(10).await;

@@ -374,7 +374,7 @@ fn half_period_loops(frequency: u32) -> u32 {
         // rounded up so SCL never exceeds the requested frequency.
         let numerator = CAL_LOOPS as u64 * 1_000_000;
         let denominator = 2 * frequency as u64 * elapsed_us;
-        ((numerator + denominator - 1) / denominator).max(1) as u32
+        crate::internal::div::div_ceil(numerator, denominator).max(1) as u32
     }
 
     #[cfg(not(feature = "embassy"))]

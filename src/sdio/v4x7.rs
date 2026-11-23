@@ -102,7 +102,7 @@ fn wait_idle<T: Instance>(limit: u32, data: bool) -> Result<(), Error> {
 }
 
 fn clock_delay<T: Instance>(clock: Hertz, cycles: u32) {
-    let iterations = u64::from(T::frequency().0).div_ceil(u64::from(clock.0)) * u64::from(cycles);
+    let iterations = u64::from(T::frequency().0.div_ceil(clock.0)) * u64::from(cycles);
     for _ in 0..iterations {
         core::hint::spin_loop();
     }

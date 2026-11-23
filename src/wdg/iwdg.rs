@@ -74,7 +74,7 @@ fn prescaler_and_reload(timeout_us: u32) -> (u8, u16) {
 
     for prescaler_power in 2u8..=8u8 {
         let prescaler = 1u32 << prescaler_power;
-        let ticks = (u64::from(timeout_us) * clock).div_ceil(u64::from(prescaler) * 1_000_000);
+        let ticks = crate::internal::div::div_ceil(u64::from(timeout_us) * clock, u64::from(prescaler) * 1_000_000);
         if ticks <= u64::from(MAX_RELOAD) + 1 {
             let ticks = ticks.max(1) as u16;
             return (prescaler_power - 2, ticks - 1);

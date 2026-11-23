@@ -35,6 +35,12 @@ use crate::{pac, peripherals, Peri, PeripheralType};
 /// AWU counter clock: HSI 48 MHz / 1024 (RM §2.3.5, §4.1).
 const CLOCK_HZ: u32 = 46_875;
 
+/// The same clock in lowest terms, 3 ticks every 64 us: for any timeout
+/// `start` accepts, converting between ticks and microseconds then fits u32
+/// and needs no 64-bit division.
+const TICKS_EVERY_US: (u32, u32) = (3, 64);
+const _: () = assert!(CLOCK_HZ * TICKS_EVERY_US.1 == TICKS_EVERY_US.0 * 1_000_000);
+
 /// The compare value is 6 bits wide. The counter runs from 0 to `APR`
 /// inclusive, so a period is `APR + 1` counter ticks.
 const APR_MAX: u8 = 0x3f;
@@ -177,17 +183,22 @@ fn clear_pending() {
 /// The counter runs from 0 to `APR` inclusive, so a period is `APR + 1`
 /// steps; pick the step count, then store one less.
 fn prescaler_and_window(timeout_us: u32) -> (Prescaler, u8, u32) {
-    let requested = u64::from(timeout_us.max(1));
-    let max_steps = u64::from(APR_MAX) + 1;
-    let mut best: Option<(u64, Prescaler, u8, u32)> = None;
+    // `start` rejects timeouts above MAX_PERIOD_US, so every product below
+    // stays under 2^28.
+    let requested = timeout_us.max(1);
+    let max_steps = u32::from(APR_MAX) + 1;
+    let (ticks, us) = TICKS_EVERY_US;
+    let mut best: Option<(u32, Prescaler, u8, u32)> = None;
 
     for (divisor, prescaler) in PRESCALERS {
-        let span = u64::from(divisor) * 1_000_000;
-        let steps = (requested * u64::from(CLOCK_HZ) + span / 2) / span;
-        let steps = steps.clamp(u64::from(STEPS_MIN), max_steps);
-        let actual_us = (steps * span / u64::from(CLOCK_HZ)) as u32;
+        // A step is `divisor` ticks, `span / ticks` microseconds. Round to
+        // the nearest step count, ties up, as before.
+        let span = divisor * us;
+        let steps = (requested * ticks + span / 2) / span;
+        let steps = steps.clamp(STEPS_MIN, max_steps);
+        let actual_us = steps * span / ticks;
 
-        let error = u64::from(actual_us.abs_diff(timeout_us.max(1)));
+        let error = actual_us.abs_diff(requested);
         match best {
             Some((best_error, ..)) if error >= best_error => {}
             _ => best = Some((error, prescaler, (steps - 1) as u8, actual_us)),

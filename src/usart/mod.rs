@@ -1074,14 +1074,16 @@ fn baudrate_divisor(clock_hz: u32, baudrate: u32) -> Result<u32, ConfigError> {
     // BRR holds USARTDIV in 4.16 fixed point, and the hardware requires
     // USARTDIV >= 1 (BRR >= 0x10), which the documented maximum baud rate
     // equals: 3 Mbps at 48 MHz, 4.5 at 72, 9 at 144 and 12.5 at 200.
-    let divisor = (u64::from(clock_hz) + u64::from(baudrate) / 2) / u64::from(baudrate);
+    // Rounded to the nearest, as (clock_hz + baudrate / 2) / baudrate, without
+    // the sum that could overflow u32.
+    let divisor = clock_hz / baudrate + u32::from(clock_hz % baudrate >= baudrate - baudrate / 2);
     if divisor < 0x10 {
         return Err(ConfigError::BaudrateTooHigh);
     }
     if divisor > 0xffff {
         return Err(ConfigError::BaudrateTooLow);
     }
-    Ok(divisor as u32)
+    Ok(divisor)
 }
 
 fn receive_error(status: pac::usart::regs::Statr) -> Option<Error> {

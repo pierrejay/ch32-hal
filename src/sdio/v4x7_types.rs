@@ -112,14 +112,14 @@ pub(super) fn clock_setting(source: Hertz, requested: u32, allow_bypass: bool) -
             frequency: source,
         });
     }
-    let divisor = u64::from(source.0).div_ceil(u64::from(requested)).max(2);
+    let divisor = source.0.div_ceil(requested).max(2);
     if divisor > 257 {
         return Err(Error::BadClock);
     }
     Ok(Clock {
         divisor: (divisor - 2) as u8,
         bypass: false,
-        frequency: Hertz(source.0 / divisor as u32),
+        frequency: Hertz(source.0 / divisor),
     })
 }
 

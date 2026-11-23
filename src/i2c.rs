@@ -274,7 +274,8 @@ fn timing(input: Hertz, frequency: Hertz, duty: Duty) -> Timing {
     } else {
         25
     };
-    let divider = u64::from(input.0).div_ceil(u64::from(frequency.0) * factor);
+    // At most 400 kHz * 25, so u32 holds it.
+    let divider = input.0.div_ceil(frequency.0 * factor);
     let divider = divider.max(if fast { 1 } else { 4 });
     assert!(divider <= 0xfff);
     Timing {
