@@ -50,6 +50,23 @@ same ELF:
 
     python3 decode.py ELF ram.bin
 
+With probe-rs 0.32 and a WCH-LinkE, for the V203 (`CH32X035F8U6`, `CH32V307VCT6`,
+`CH32H417QEU6` for the others):
+
+    ELF=target/riscv32imc-unknown-none-elf/release/uart-stress
+    llvm-objcopy -O binary $ELF image.bin
+    BASE=$(python3 decode.py --base $ELF)
+    probe-rs download --chip CH32V203C8T6 --binary-format bin --base-address 0x08000000 --verify image.bin
+    probe-rs write --chip CH32V203C8T6 b32 $BASE $(printf ' 0%.0s' $(seq 1024))
+    probe-rs reset --chip CH32V203C8T6
+    sleep 90
+    probe-rs read --chip CH32V203C8T6 -o ram.bin -f binary b32 $BASE 1024
+    python3 decode.py $ELF ram.bin
+
+probe-rs's `read` halts the core and resumes it: right for a run that ended, not for looking at
+one that stopped mid-phase, where the core is to stay halted (a probe tool that halts without a
+reset).
+
 `decode.py` needs `llvm-nm` (the `llvm-tools` component the toolchain file lists, or one on the
 path). A debug probe may restart the core alone: if the program finds the chip as a previous
 program left it (DMA channels or TIM2 enabled, the system clock configured), it stops before any
@@ -61,6 +78,40 @@ result and ends with `DONE: every phase as expected`, or with the phase where th
 stopped. The first unexpected result stops the senders and, at the end of its phase, the
 program; its details stay in `DIAG`. A noise control (4, 9) that fails skips its noise phase
 instead, and the decoder then reports the coverage incomplete.
+
+## Phases
+
+| Phases | What |
+|---|---|
+| 0–9, 14–17 | controls by registers: a byte, a break, framing, parity, noise each way; parity after a switch to 8E1 |
+| 10–13 | `read_until_idle`: ten bytes, then a break, into each USART |
+| 20–30 | the ring's API on B: first reads, nothing arriving, echo, `start_uart()` dropping unread bytes, a buffer overrun, a restart with the lap's flag pending, breaks while waiting in `read()` (26), while not in it (27), after a burst, one-byte reads, reads larger than the ring |
+| 31 | wakes: each `read()` woken by the driver alone (idle line, DMA half and full transfer, error) |
+| 40–47 | full duplex at four rates up to the fastest, without load (even) and under load (odd); 48: the load's timer did interrupt the USART handlers |
+| 49 | rings of 255 and 100 bytes at 1 Mbaud under load: overruns allowed, each checked real |
+| 50–55, 60–65 | break, framing, parity, noise, overrun injected into B (50–54) and into A (60–64), 7 offsets after a restart, 115200 and 1 Mbaud; 55, 65: framing errors while the receiving USART also transmits and calls `flush()` (losses counted) |
+| 70–73 | slow readers: within a lap (70, 72: no overrun allowed), several laps behind (71, 73: overruns required, each real) |
+| 80 | (`long`) full duplex under load, 64 rounds |
+| 88, 89 | (`restart`) cost: the DMA ring alone, then `read()`, 100 000 bytes at 3 Mbaud |
+| 90–93 | measurements by registers: how PE and ORE clear, whether a stopped channel keeps a DMA request, `start_uart()`'s duration |
+| 94 | (`restart`) 200 restarts during a 2 Mbaud stream |
+| 18, 19, 95 | (`restart`) parity errors around a restart; a DMA write while the executor sleeps |
+
+## Host tests
+
+`host/` tests the DMA ring buffer's read side on the host. `src/new_impl/ringbuffer.rs` is the
+pull request's `src/dma/ringbuffer.rs` and `src/old_impl/ringbuffer.rs` main's (with two empty
+default methods its trait lacks), each followed by the same tests (`tests_common.rs`:
+embassy-stm32's read tests adapted to ch32-hal's API, and variants that compare only the data
+returned); `new_impl` also by tests of the races found in review. From `host/`:
+
+    T="--target $(rustc -vV | sed -n 's/^host: //p') --config unstable.build-std=[\"std\",\"test\",\"panic_unwind\"]"
+    cargo test $T new_impl    # 36 passed
+    cargo test $T old_impl    # 26 of 27 fail
+
+(the `.cargo/config.toml` above builds `core` from source for the chips, hence `std` here). Among
+main's failures are the 9 `data_*` tests, which compare only the data; the others also check the
+counts `read()` and `read_exact()` return.
 
 ## What it checks
 

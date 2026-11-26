@@ -6,7 +6,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-ch32-hal = { git = "https://github.com/pierrejay/ch32-hal", rev = "d956b25", default-features = false, features = ["memory-x", "embassy", "rt"] }
+ch32-hal = { git = "https://github.com/pierrejay/ch32-hal", rev = "1706161", default-features = false, features = ["memory-x", "embassy", "rt"] }
 embassy-executor = { version = "0.10.0", features = ["executor-thread"] }
 embassy-time = "0.5.1"
 embassy-futures = "0.1.2"
@@ -31,7 +31,7 @@ long = []
 restart = []
 # Diagnosis: the interrupts' and SysTick's state copied after each poll of a phase (main.rs, WATCH).
 watch = []
-# The image built against ch32-hal's main (build.sh's CHECKOUT): 94, 18 and 19 left out, their
+# The image built against ch32-hal's main, 0645921: 94, 18 and 19 left out, their
 # restarts meet main's defect (an NDTR write with the channel running) and 94's crash the program.
 main-hal = []
 

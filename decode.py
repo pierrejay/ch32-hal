@@ -232,7 +232,7 @@ if any(diag):
     print('DIAG phase %d, code %s (word %#x), then %s' % (diag[0], FAIL.get(diag[1] & 0xff, diag[1]), diag[1],
                                                           ['%#x' % w for w in diag[2:]]))
 if boot_dirty:
-    # Its own status: campaign.sh stops on it, whatever image ran.
+    # Its own exit status (3): no test ran, whatever image this was.
     print('STOP: the chip was not clean at startup; no test ran')
     sys.exit(3)
 if state == 3:
