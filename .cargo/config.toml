@@ -1,0 +1,10 @@
+# The V203, V307 and X035: the built-in rv32imc target (the H417 is built with
+# `--target h417/riscv32imafc-unknown-none-elf.json`). core is built from source with the
+# toolchain of rust-toolchain.toml, as for every image of the tests; a custom target needs it.
+[build]
+target = "riscv32imc-unknown-none-elf"
+
+[unstable]
+build-std = ["core"]
+build-std-features = ["compiler-builtins-mem"]
+json-target-spec = true

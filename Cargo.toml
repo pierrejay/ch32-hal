@@ -1,0 +1,45 @@
+# Stress test of ch32-hal's ring-buffered USART receiver: see README.md.
+[package]
+name = "uart-stress"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+ch32-hal = { git = "https://github.com/pierrejay/ch32-hal", rev = "d956b25", default-features = false, features = ["memory-x", "embassy", "rt"] }
+embassy-executor = { version = "0.10.0", features = ["executor-thread"] }
+embassy-time = "0.5.1"
+embassy-futures = "0.1.2"
+critical-section = "1.2"
+qingke-rt = "0.8"
+panic-halt = "1.0"
+
+[features]
+# Exactly one chip.
+v203 = ["ch32-hal/ch32v203c8t6"]
+v307 = ["ch32-hal/ch32v307vct6"]
+# The CH32H417's V3F boot core, its code copied to the zero-wait shared SRAM at startup (h417/).
+h417 = ["ch32-hal/ch32h417qeu6-v3f", "qingke-rt/highcode"]
+x035 = ["ch32-hal/ch32x035f8u6"]
+# Exactly one executor platform: `spin` never sleeps, `wfi` sleeps in WFI between polls.
+spin = ["embassy-executor/platform-spin"]
+wfi = ["embassy-executor/platform-riscv32"]
+# After the suite, a long full-duplex run under load.
+long = []
+# The controls (0..=9, 14..=17), the measurements 90..=93 and 95, and 88, 89, 91, 94, 18 and 19
+# where they can run: nothing else.
+restart = []
+# Diagnosis: the interrupts' and SysTick's state copied after each poll of a phase (main.rs, WATCH).
+watch = []
+# The image built against ch32-hal's main (build.sh's CHECKOUT): 94, 18 and 19 left out, their
+# restarts meet main's defect (an NDTR write with the channel running) and 94's crash the program.
+main-hal = []
+
+[profile.release]
+debug = true
+opt-level = "z"
+lto = true
+# One unit: the smallest image (the X035 has 62 KiB of Flash).
+codegen-units = 1
+
+[workspace]
