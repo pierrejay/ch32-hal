@@ -514,3 +514,15 @@ fn clear_with_a_lap_ending_inside() {
         assert!(got == seq(CAP..CAP + 2) || got == seq(CAP - 1..CAP + 2), "at {at}: {got:?}");
     }
 }
+
+/// clear() takes NDTR at 0 (the reload not done yet, its lap counted at the reload), then a full
+/// lap arrives with no read in between: the buffer is exactly full, nothing overwritten.
+#[test]
+fn clear_at_ndtr_zero_then_a_full_lap() {
+    let mut t = Reader::with_dma(Dma { lazy_reload: true, ..Default::default() });
+    t.dma(CAP);
+    t.rb.clear(&mut t.dma);
+    t.dma.lazy_reload = false;
+    t.dma(CAP);
+    assert_eq!(t.read(CAP), Ok((seq(CAP..2 * CAP), 0)));
+}

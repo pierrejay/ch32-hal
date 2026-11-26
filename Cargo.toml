@@ -6,7 +6,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-ch32-hal = { git = "https://github.com/pierrejay/ch32-hal", rev = "228ed32", default-features = false, features = ["memory-x", "embassy", "rt"] }
+ch32-hal = { git = "https://github.com/pierrejay/ch32-hal", rev = "1cc2b06", default-features = false, features = ["memory-x", "embassy", "rt"] }
 embassy-executor = { version = "0.10.0", features = ["executor-thread"] }
 embassy-time = "0.5.1"
 embassy-futures = "0.1.2"

@@ -106,8 +106,8 @@ embassy-stm32's read tests adapted to ch32-hal's API, and variants that compare 
 returned); `new_impl` also by tests of the races found in review. From `host/`:
 
     T="--target $(rustc -vV | sed -n 's/^host: //p') --config unstable.build-std=[\"std\",\"test\",\"panic_unwind\"]"
-    cargo test $T new_impl    # 36 passed
-    cargo test $T old_impl    # 26 of 27 fail
+    cargo test $T new_impl    # 37 passed
+    cargo test $T old_impl    # 27 of 28 fail
 
 (the `.cargo/config.toml` above builds `core` from source for the chips, hence `std` here). Among
 main's failures are the 9 `data_*` tests, which compare only the data; the others also check the

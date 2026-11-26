@@ -186,7 +186,10 @@ impl<'a, W: Word> ReadableDmaRingBuffer<'a, W> {
                 break;
             }
         }
+        // The writer may stay at `cap` (NDTR read as 0, the reload's lap still to be counted),
+        // which its next sync needs; the reader starts at 0 of the next lap, the same place.
         self.read_index = self.write_index;
+        self.read_index.advance(self.cap(), 0);
     }
 
     /// The capacity of the ringbuffer
@@ -270,10 +273,7 @@ impl<'a, W: Word> ReadableDmaRingBuffer<'a, W> {
             return Ok((0, available));
         }
 
-        // `advance` by 0 brings a position of `cap` (NDTR read as 0 when the buffer was
-        // cleared) back to 0 of the next lap.
-        let mut read_start = self.read_index;
-        read_start.advance(self.cap(), 0);
+        let read_start = self.read_index;
         self.copy_from(read_start.pos, &mut buf[..readable]);
 
         // The DMA may have caught up with the read position and written into the

@@ -69,7 +69,7 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 [[package]]
 name = "ch32-hal"
 version = "0.1.0"
-source = "git+https://github.com/pierrejay/ch32-hal?rev=228ed32#228ed328a30ccca2b3a97e7f8fb9c4eeff9f298c"
+source = "git+https://github.com/pierrejay/ch32-hal?rev=1cc2b06#1cc2b06831caf9e8003dea91128964667bfffa04"
 dependencies = [
  "bitmaps",
  "ch32-metapac",
