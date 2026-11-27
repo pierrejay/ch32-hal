@@ -41,7 +41,8 @@ impl Dma {
     fn wrap(&self) {
         self.pos.set(0);
         if self.defer_irq {
-            self.pending_laps.set(self.pending_laps.get() + 1);
+            // TCIF is one sticky flag: laps that end while the interrupt is held off count as one.
+            self.pending_laps.set(1);
         } else {
             self.laps.set(self.laps.get() + 1);
         }

@@ -97,8 +97,8 @@ impl DmaIndex {
         } else {
             pos
         };
-        // The interrupt's count saturates rather than wraps; so does the sum, which the overrun
-        // checks then catch before any multiplication.
+        // The interrupt's count wraps after 2^32 laps, so a reader looks at least that often. The
+        // sum saturates, which the overrun checks then catch before any multiplication.
         self.complete_count = self.complete_count.saturating_add(laps_completed);
     }
 
@@ -512,10 +512,10 @@ mod tests {
         assert_eq!(t.read(CAP), Ok((seq(3..5), 0)));
     }
 
-    /// The interrupt's lap count saturated while the write index already held a counted lap: an
-    /// overrun, not an overflow of the sum; then reception goes on.
+    /// A huge lap count from the interrupt (just before it wraps) while the write index already held
+    /// a counted lap: an overrun, not an overflow of the sum; then reception goes on.
     #[test]
-    fn saturated_lap_count_after_a_counted_lap() {
+    fn huge_lap_count_after_a_counted_lap() {
         let mut t = Reader::new();
         t.dma(CAP);
         assert_eq!(t.read(1), Ok((seq(0..1), CAP - 1)));
@@ -555,9 +555,12 @@ mod tests {
             t.rb.clear(&mut t.dma);
             t.dma.irq();
             let mut got = Vec::new();
-            // A full lap between reads, as in the reported case: the buffer is full, not overrun.
+            // A full lap between reads, as in the reported case: the buffer is full, not overrun. The
+            // interrupt runs once the read is done (a lap that ended during it is counted then), and
+            // again after the lap: TCIF is one flag, so it may not be held off for a whole lap.
             for round in 0..3 {
                 got.extend(t.read(CAP).unwrap_or_else(|e| panic!("at {at}, round {round}: {e:?} after {got:?}")).0);
+                t.dma.irq();
                 t.dma(CAP);
                 t.dma.irq();
             }
