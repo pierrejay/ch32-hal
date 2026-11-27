@@ -187,3 +187,14 @@ With `restart`, after the controls and the measurements by registers:
 the ring receives writes NDTR with the channel running, and on the V203 the DMA goes on from its
 address: 94's restarts make it write past the ring, over the program, which crashes. 18 and 19
 restart the ring the same way; the `main-hal` feature leaves these three out.
+
+## SPI slave check
+
+`spi/spi_check.rs` checks the SPI slave ring of ch32-hal #254, whose DMA interrupt handler the
+pull request changes. Put it in the pull request branch's `examples/ch32v307/src/bin/` and build
+it there (`cargo build --release --bin spi_check`). On a CH32V307, wire PA5 to PB13, PA7 to
+PB15, PB14 to PA6 and PA4 to PB12: SPI1 as master streams to SPI2's ring for 60 s, every word
+checked both ways, with one planned restart, while TIM2, above the DMA interrupts' priority,
+reads the RX position every 20 µs and checks it never goes back. Read `RESULTS` (12 words) with
+a debugger after about 65 s; the file's header says what each word holds, `RESULTS[0] == 2`
+means it passed.
